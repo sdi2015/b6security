@@ -1,13 +1,18 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { AppLayout } from "@/components/layout/AppLayout";
+import { DashboardStats } from "@/components/dashboard/DashboardStats";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <AppLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-guard-900">Dashboard</h1>
+          <p className="text-guard-500">Welcome to GuardTrack Commander</p>
+        </div>
+        <DashboardStats />
       </div>
-    </div>
+    </AppLayout>
   );
 };
 
