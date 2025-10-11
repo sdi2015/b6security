@@ -17,6 +17,7 @@ import {
   ClipboardList,
   BarChart3,
   Settings,
+  Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -30,6 +31,11 @@ const menuItems = [
     title: "Guards",
     icon: UserSquare2,
     path: "/guards",
+  },
+  {
+    title: "Riders",
+    icon: Users,
+    path: "/riders",
   },
   {
     title: "Schedule",
