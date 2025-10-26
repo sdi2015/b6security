@@ -1,5 +1,8 @@
+import { useMemo, useState } from "react";
+import { format, parseISO, subMonths } from "date-fns";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -7,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -15,204 +19,213 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { FileText, Download, Printer } from "lucide-react";
-import { useState } from "react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAccount } from "@/context/AccountContext";
+import { useIncidents, useReports, useSites } from "@/features/operations/hooks";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Download, FileText, Printer } from "lucide-react";
 
-interface Report {
-  id: number;
-  type: string;
-  date: Date;
-  status: "Generated" | "Pending";
-  description: string;
+import type { IncidentReport } from "@/features/operations/types";
+
+function createIncidentTrend(incidents: IncidentReport[] | undefined) {
+  const now = new Date();
+  const buckets: { label: string; count: number }[] = [];
+  for (let i = 5; i >= 0; i -= 1) {
+    const bucketDate = subMonths(now, i);
+    const key = format(bucketDate, "yyyy-MM");
+    const label = format(bucketDate, "MMM yy");
+    const count = (incidents ?? []).filter((incident) => format(parseISO(incident.occurred_at), "yyyy-MM") === key).length;
+    buckets.push({ label, count });
+  }
+  return buckets;
 }
 
-const chartData = [
-  { date: "01/24", incidents: 4 },
-  { date: "02/24", incidents: 6 },
-  { date: "03/24", incidents: 3 },
-  { date: "04/24", incidents: 8 },
-  { date: "05/24", incidents: 5 },
-];
+export default function Reports() {
+  const { accountId } = useAccount();
+  const { data: reports, isLoading, isError, error } = useReports(accountId ?? undefined);
+  const { data: incidents } = useIncidents(accountId ?? undefined, undefined);
+  const { data: sites } = useSites(accountId ?? undefined, true);
+  const [filter, setFilter] = useState<string>("all");
 
-const initialReports: Report[] = [
-  {
-    id: 1,
-    type: "Incident Summary",
-    date: new Date(),
-    status: "Generated",
-    description: "Monthly summary of all security incidents",
-  },
-  {
-    id: 2,
-    type: "Guard Performance",
-    date: new Date(),
-    status: "Generated",
-    description: "Quarterly guard performance evaluation",
-  },
-  {
-    id: 3,
-    type: "Shift Coverage",
-    date: new Date(),
-    status: "Pending",
-    description: "Weekly shift coverage analysis",
-  },
-];
+  const filteredReports = useMemo(() => {
+    if (!reports) return [];
+    if (filter === "all") return reports;
+    return reports.filter((report) => report.report_type === filter);
+  }, [reports, filter]);
 
-const Reports = () => {
-  const [reports] = useState<Report[]>(initialReports);
-  const [timeframe, setTimeframe] = useState("month");
+  const incidentTrend = useMemo(() => createIncidentTrend(incidents), [incidents]);
+  const reportsLastSevenDays = useMemo(() => {
+    if (!reports) return 0;
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() - 7);
+    return reports.filter((report) => new Date(report.submitted_at) >= threshold).length;
+  }, [reports]);
+
+  const coverageBySite = useMemo(() => {
+    if (!reports) return new Map<string, number>();
+    return reports.reduce((map, report) => {
+      if (!report.site_id) return map;
+      map.set(report.site_id, (map.get(report.site_id) ?? 0) + 1);
+      return map;
+    }, new Map<string, number>());
+  }, [reports]);
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-            <p className="text-muted-foreground">
-              Generate and view security operation reports
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-guard-900">Reports</h1>
+            <p className="text-guard-500">Publish incident summaries and patrol logs for stakeholders.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="flex items-center gap-2">
-              <Printer className="w-4 h-4" />
-              Print
+            <Button variant="outline" className="flex items-center gap-2" disabled>
+              <Printer className="h-4 w-4" /> Print (coming soon)
             </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              Export
+            <Button variant="outline" className="flex items-center gap-2" disabled>
+              <Download className="h-4 w-4" /> Export CSV
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Total Reports</CardTitle>
-              <CardDescription>All generated reports</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{reports.length}</div>
-            </CardContent>
-          </Card>
+        {isError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load reports</AlertTitle>
+            <AlertDescription>{error?.message ?? "Unknown error"}</AlertDescription>
+          </Alert>
+        ) : null}
 
+        <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle>Pending Reports</CardTitle>
-              <CardDescription>Reports awaiting generation</CardDescription>
+              <CardTitle>Total reports</CardTitle>
+              <CardDescription>Supabase operations_reports table</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
-                {reports.filter((r) => r.status === "Pending").length}
+              <div className="text-3xl font-semibold text-guard-900">
+                {isLoading ? <Skeleton className="h-8 w-16" /> : (reports ?? []).length}
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
-              <CardTitle>Generated Today</CardTitle>
-              <CardDescription>Reports created today</CardDescription>
+              <CardTitle>Last 7 days</CardTitle>
+              <CardDescription>Recently published updates</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">2</div>
+              <div className="text-3xl font-semibold text-guard-900">
+                {isLoading ? <Skeleton className="h-8 w-16" /> : reportsLastSevenDays}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Sites covered</CardTitle>
+              <CardDescription>Reports delivered per client location</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-semibold text-guard-900">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  Array.from(coverageBySite.values()).filter(Boolean).length
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle>Incident Trends</CardTitle>
-            <Select
-              defaultValue={timeframe}
-              onValueChange={(value) => setTimeframe(value)}
+          <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Incident trend</CardTitle>
+              <CardDescription>Rolling six-month incident volume</CardDescription>
+            </div>
+            <select
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              className="rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select timeframe" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="week">Past Week</SelectItem>
-                <SelectItem value="month">Past Month</SelectItem>
-                <SelectItem value="year">Past Year</SelectItem>
-              </SelectContent>
-            </Select>
+              <option value="all">All report types</option>
+              {Array.from(new Set((reports ?? []).map((report) => report.report_type))).map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <XAxis dataKey="date" />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="incidents"
-                    stroke="#9b87f5"
-                    fill="#9b87f5"
-                    fillOpacity={0.2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {isLoading ? (
+                <Skeleton className="h-full w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={incidentTrend}>
+                    <defs>
+                      <linearGradient id="incidentGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.1} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="label" stroke="#94a3b8" />
+                    <YAxis allowDecimals={false} stroke="#94a3b8" />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="count" stroke="#4f46e5" fill="url(#incidentGradient)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Available Reports</CardTitle>
-            <CardDescription>List of all generated reports</CardDescription>
+            <CardTitle>Published reports</CardTitle>
+            <CardDescription>Filtered by type: {filter === "all" ? "All" : filter}</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Type</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Site</TableHead>
+                  <TableHead>Title</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reports.map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell className="flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      {report.type}
-                    </TableCell>
-                    <TableCell>
-                      {report.date.toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          report.status === "Generated"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {report.status}
-                      </span>
-                    </TableCell>
-                    <TableCell>{report.description}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex items-center gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </Button>
+                {isLoading ? (
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell colSpan={4}>
+                        <Skeleton className="h-6 w-full" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredReports.length > 0 ? (
+                  filteredReports.map((report) => {
+                    const siteName = report.site_id
+                      ? sites?.find((site) => site.id === report.site_id)?.name ?? "Unknown site"
+                      : "Portfolio";
+                    return (
+                      <TableRow key={report.id}>
+                        <TableCell className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-guard-500" />
+                          {report.report_type}
+                        </TableCell>
+                        <TableCell>{format(parseISO(report.submitted_at), "MMM d, yyyy h:mm a")}</TableCell>
+                        <TableCell>{siteName}</TableCell>
+                        <TableCell className="max-w-xl text-sm text-guard-700">{report.title}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-guard-500">
+                      No reports available for the selected type.
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -220,6 +233,4 @@ const Reports = () => {
       </div>
     </AppLayout>
   );
-};
-
-export default Reports;
+}

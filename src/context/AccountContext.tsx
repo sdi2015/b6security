@@ -10,7 +10,15 @@ import {
 import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 
-export type AccountRole = "owner" | "manager" | "member" | "viewer" | null;
+export type AccountRole =
+  | "owner"
+  | "manager"
+  | "supervisor"
+  | "guard"
+  | "client"
+  | "member"
+  | "viewer"
+  | null;
 
 type AccountContextState = {
   accountId: string | null;

@@ -1,49 +1,72 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserSquare2, CalendarDays, Bell, ClipboardList } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAccount } from "@/context/AccountContext";
+import { useDashboardMetrics } from "@/features/operations/hooks";
+import { Bell, CalendarDays, ClipboardList, UserSquare2 } from "lucide-react";
 
-const stats = [
+const dashboardCards = [
   {
     title: "Active Guards",
-    value: "24",
     icon: UserSquare2,
-    trend: "+2 this week",
+    accessor: "guard_count" as const,
+    description: "Personnel cleared for duty",
   },
   {
-    title: "Scheduled Shifts",
-    value: "156",
+    title: "Live Shifts",
     icon: CalendarDays,
-    trend: "Next 7 days",
+    accessor: "active_shift_count" as const,
+    description: "Scheduled, filled, or in-progress",
   },
   {
-    title: "Active Incidents",
-    value: "3",
+    title: "Open Incidents",
     icon: Bell,
-    trend: "2 require attention",
+    accessor: "open_incident_count" as const,
+    description: "Requires supervisor attention",
   },
   {
-    title: "Reports Generated",
-    value: "28",
+    title: "Reports (30 days)",
     icon: ClipboardList,
-    trend: "This month",
+    accessor: "report_count_last_30_days" as const,
+    description: "Submitted to clients",
   },
 ];
 
 export function DashboardStats() {
+  const { accountId } = useAccount();
+  const { data, isLoading, isError, error } = useDashboardMetrics(accountId);
+
+  if (isError) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Unable to load dashboard metrics</AlertTitle>
+        <AlertDescription>{error?.message ?? "Unknown error"}</AlertDescription>
+      </Alert>
+    );
+  }
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat) => (
-        <Card key={stat.title} className="animate-fade-up">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-            <stat.icon className="h-4 w-4 text-guard-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stat.value}</div>
-            <p className="text-xs text-guard-500">{stat.trend}</p>
-          </CardContent>
-        </Card>
-      ))}
+      {dashboardCards.map((card) => {
+        const value = data?.[card.accessor] ?? 0;
+        return (
+          <Card key={card.title} className="animate-fade-up">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+              <card.icon className="h-4 w-4 text-guard-500" />
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{value}</div>
+              )}
+              <p className="text-xs text-guard-500">{card.description}</p>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

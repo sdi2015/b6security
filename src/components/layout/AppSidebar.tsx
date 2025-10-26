@@ -11,82 +11,90 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {
-  UserSquare2,
-  CalendarDays,
-  Bell,
-  ClipboardList,
   BarChart3,
-  Settings,
+  Bell,
+  CalendarDays,
+  ClipboardList,
+  Cog,
+  Factory,
+  ShieldCheck,
+  Smartphone,
   Users,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import clsx from "clsx";
+import type { ComponentType } from "react";
 
-const menuItems = [
+type MenuItem = {
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  path: string;
+  description?: string;
+};
+
+const menuSections: { label: string; items: MenuItem[] }[] = [
   {
-    title: "Dashboard",
-    icon: BarChart3,
-    path: "/",
+    label: "Command Center",
+    items: [
+      { title: "Dashboard", icon: BarChart3, path: "/" },
+      { title: "Guards", icon: ShieldCheck, path: "/guards" },
+      { title: "Sites", icon: Factory, path: "/sites" },
+      { title: "Schedule", icon: CalendarDays, path: "/schedule" },
+      { title: "Incidents", icon: Bell, path: "/incidents" },
+      { title: "Reports", icon: ClipboardList, path: "/reports" },
+    ],
   },
   {
-    title: "Guards",
-    icon: UserSquare2,
-    path: "/guards",
-  },
-  {
-    title: "Riders",
-    icon: Users,
-    path: "/riders",
-  },
-  {
-    title: "Schedule",
-    icon: CalendarDays,
-    path: "/schedule",
-  },
-  {
-    title: "Incidents",
-    icon: Bell,
-    path: "/incidents",
-  },
-  {
-    title: "Reports",
-    icon: ClipboardList,
-    path: "/reports",
-  },
-  {
-    title: "Settings",
-    icon: Settings,
-    path: "/settings",
+    label: "Stakeholders",
+    items: [
+      { title: "Clients", icon: Users, path: "/clients" },
+      { title: "Field App", icon: Smartphone, path: "/field" },
+      { title: "Settings", icon: Cog, path: "/settings" },
+    ],
   },
 ];
 
 export function AppSidebar() {
+  const location = useLocation();
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <h2 className="text-lg font-semibold text-guard-900">GuardTrack</h2>
-        <p className="text-sm text-guard-500">Commander</p>
+        <h2 className="text-lg font-semibold text-guard-900">B6 Security</h2>
+        <p className="text-sm text-guard-500">Operations Platform</p>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Management</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <Link
-                      to={item.path}
-                      className="flex items-center gap-3 px-3 py-2"
-                    >
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {menuSections.map((section) => (
+          <SidebarGroup key={section.label}>
+            <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <Link
+                          to={item.path}
+                          className={clsx(
+                            "flex items-center gap-3 px-3 py-2 rounded-md",
+                            isActive
+                              ? "bg-guard-100 text-guard-900"
+                              : "text-guard-700 hover:bg-guard-100 hover:text-guard-900"
+                          )}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
     </Sidebar>
   );
