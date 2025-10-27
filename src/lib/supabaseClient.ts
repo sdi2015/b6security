@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
     "Supabase environment variables are missing. Data queries will fail until VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are configured."

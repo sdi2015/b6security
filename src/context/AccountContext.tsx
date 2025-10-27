@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { MOCK_ACCOUNT_ID } from "@/lib/mockData";
 
 export type AccountRole =
   | "owner"
@@ -31,6 +32,13 @@ type AccountContextState = {
 const AccountContext = createContext<AccountContextState | undefined>(undefined);
 
 async function fetchPrimaryMembership() {
+  if (!isSupabaseConfigured) {
+    return {
+      accountId: MOCK_ACCOUNT_ID,
+      role: "manager" as AccountRole,
+    };
+  }
+
   const {
     data: { session },
     error: sessionError,
@@ -91,6 +99,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void load();
+    if (!isSupabaseConfigured) {
+      return () => {};
+    }
     let subscription: ReturnType<typeof supabase.auth.onAuthStateChange> | null = null;
     try {
       subscription = supabase.auth.onAuthStateChange(() => {

@@ -1,6 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import {
+  addMockGuard,
+  addMockIncident,
+  getMockClients,
+  getMockDashboardMetrics,
+  getMockGuards,
+  getMockIncidents,
+  getMockReports,
+  getMockShifts,
+  getMockSites,
+  MOCK_ACCOUNT_ID,
+} from "@/lib/mockData";
 import type {
   ClientAccount,
   DashboardMetrics,
@@ -29,7 +41,7 @@ const GUARD_FIELDS =
 export function useGuards(accountId?: string | null, includeInactive = false) {
   return useQuery<Guard[], PostgrestError>({
     queryKey: ["guards", accountId, includeInactive],
-    enabled: Boolean(accountId),
+    enabled: isSupabaseConfigured ? Boolean(accountId) : true,
     retry(failureCount, error) {
       if (isPermissionError(error)) {
         return false;
@@ -37,6 +49,9 @@ export function useGuards(accountId?: string | null, includeInactive = false) {
       return failureCount < 3;
     },
     queryFn: async () => {
+      if (!isSupabaseConfigured) {
+        return getMockGuards(accountId ?? MOCK_ACCOUNT_ID, includeInactive);
+      }
       const query = supabase
         .from("guards")
         .select(GUARD_FIELDS)
@@ -63,7 +78,7 @@ const CLIENT_FIELDS =
 export function useClients(accountId?: string | null) {
   return useQuery<ClientAccount[], PostgrestError>({
     queryKey: ["clients", accountId],
-    enabled: Boolean(accountId),
+    enabled: isSupabaseConfigured ? Boolean(accountId) : true,
     retry(failureCount, error) {
       if (isPermissionError(error)) {
         return false;
@@ -71,6 +86,9 @@ export function useClients(accountId?: string | null) {
       return failureCount < 3;
     },
     queryFn: async () => {
+      if (!isSupabaseConfigured) {
+        return getMockClients(accountId ?? MOCK_ACCOUNT_ID);
+      }
       const { data, error } = await supabase
         .from("clients")
         .select(CLIENT_FIELDS)
@@ -90,7 +108,7 @@ const SITE_FIELDS =
 export function useSites(accountId?: string | null, includeInactive = false) {
   return useQuery<Site[], PostgrestError>({
     queryKey: ["sites", accountId, includeInactive],
-    enabled: Boolean(accountId),
+    enabled: isSupabaseConfigured ? Boolean(accountId) : true,
     retry(failureCount, error) {
       if (isPermissionError(error)) {
         return false;
@@ -98,6 +116,9 @@ export function useSites(accountId?: string | null, includeInactive = false) {
       return failureCount < 3;
     },
     queryFn: async () => {
+      if (!isSupabaseConfigured) {
+        return getMockSites(accountId ?? MOCK_ACCOUNT_ID, includeInactive);
+      }
       const query = supabase
         .from("sites")
         .select(SITE_FIELDS)
@@ -121,7 +142,7 @@ const SHIFT_FIELDS =
 export function useUpcomingShifts(accountId?: string | null, daysAhead = 14) {
   return useQuery<ShiftAssignment[], PostgrestError>({
     queryKey: ["shifts", accountId, daysAhead],
-    enabled: Boolean(accountId),
+    enabled: isSupabaseConfigured ? Boolean(accountId) : true,
     retry(failureCount, error) {
       if (isPermissionError(error)) {
         return false;
@@ -129,6 +150,9 @@ export function useUpcomingShifts(accountId?: string | null, daysAhead = 14) {
       return failureCount < 3;
     },
     queryFn: async () => {
+      if (!isSupabaseConfigured) {
+        return getMockShifts(accountId ?? MOCK_ACCOUNT_ID, daysAhead);
+      }
       const now = new Date();
       const end = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
       const { data, error } = await supabase
@@ -152,7 +176,7 @@ const INCIDENT_FIELDS =
 export function useIncidents(accountId?: string | null, statusFilter?: string) {
   return useQuery<IncidentReport[], PostgrestError>({
     queryKey: ["incidents", accountId, statusFilter],
-    enabled: Boolean(accountId),
+    enabled: isSupabaseConfigured ? Boolean(accountId) : true,
     retry(failureCount, error) {
       if (isPermissionError(error)) {
         return false;
@@ -160,6 +184,9 @@ export function useIncidents(accountId?: string | null, statusFilter?: string) {
       return failureCount < 3;
     },
     queryFn: async () => {
+      if (!isSupabaseConfigured) {
+        return getMockIncidents(accountId ?? MOCK_ACCOUNT_ID, statusFilter);
+      }
       const query = supabase
         .from("incidents")
         .select(INCIDENT_FIELDS)
@@ -185,7 +212,7 @@ const REPORT_FIELDS =
 export function useReports(accountId?: string | null) {
   return useQuery<OperationsReport[], PostgrestError>({
     queryKey: ["reports", accountId],
-    enabled: Boolean(accountId),
+    enabled: isSupabaseConfigured ? Boolean(accountId) : true,
     retry(failureCount, error) {
       if (isPermissionError(error)) {
         return false;
@@ -193,6 +220,9 @@ export function useReports(accountId?: string | null) {
       return failureCount < 3;
     },
     queryFn: async () => {
+      if (!isSupabaseConfigured) {
+        return getMockReports(accountId ?? MOCK_ACCOUNT_ID);
+      }
       const { data, error } = await supabase
         .from("reports")
         .select(REPORT_FIELDS)
@@ -209,7 +239,7 @@ export function useReports(accountId?: string | null) {
 export function useDashboardMetrics(accountId?: string | null) {
   return useQuery<DashboardMetrics, PostgrestError>({
     queryKey: ["dashboard_metrics", accountId],
-    enabled: Boolean(accountId),
+    enabled: isSupabaseConfigured ? Boolean(accountId) : true,
     retry(failureCount, error) {
       if (isPermissionError(error)) {
         return false;
@@ -217,6 +247,9 @@ export function useDashboardMetrics(accountId?: string | null) {
       return failureCount < 3;
     },
     queryFn: async () => {
+      if (!isSupabaseConfigured) {
+        return getMockDashboardMetrics(accountId ?? MOCK_ACCOUNT_ID);
+      }
       const [{ count: guardCount, error: guardError }, { count: shiftCount, error: shiftError }, { count: incidentCount, error: incidentError }, { count: reportCount, error: reportError }] =
         await Promise.all([
           supabase.from("guards").select("id", { count: "exact", head: true }).eq("account_id", accountId),
@@ -269,11 +302,26 @@ export function useCreateGuard(accountId?: string | null) {
   return useMutation<Guard, PostgrestError, CreateGuardInput>({
     mutationKey: ["create_guard", accountId],
     async mutationFn(input) {
-      if (!accountId) {
+      if (!accountId && isSupabaseConfigured) {
         throw new Error("An account must be selected before creating guards");
       }
+      const resolvedAccountId = accountId ?? MOCK_ACCOUNT_ID;
+      if (!isSupabaseConfigured) {
+        return addMockGuard({
+          account_id: resolvedAccountId,
+          first_name: input.first_name,
+          last_name: input.last_name,
+          badge_number: input.badge_number ?? null,
+          email: input.email ?? null,
+          phone: input.phone ?? null,
+          status: input.status ?? "active",
+          shift_preference: input.shift_preference ?? null,
+          primary_site_id: input.primary_site_id ?? null,
+          hire_date: input.hire_date ?? null,
+        });
+      }
       const payload = {
-        account_id: accountId,
+        account_id: resolvedAccountId,
         first_name: input.first_name,
         last_name: input.last_name,
         badge_number: input.badge_number ?? null,
@@ -294,9 +342,9 @@ export function useCreateGuard(accountId?: string | null) {
       }
       return data;
     },
-    onSuccess: (_, __, context) => {
-      void queryClient.invalidateQueries({ queryKey: ["guards", accountId] });
-      return context;
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["guards"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard_metrics"] });
     },
   });
 }
@@ -316,11 +364,24 @@ export function useCreateIncident(accountId?: string | null) {
   return useMutation<IncidentReport, PostgrestError, CreateIncidentInput>({
     mutationKey: ["create_incident", accountId],
     async mutationFn(input) {
-      if (!accountId) {
+      if (!accountId && isSupabaseConfigured) {
         throw new Error("An account must be selected before reporting incidents");
       }
+      const resolvedAccountId = accountId ?? MOCK_ACCOUNT_ID;
+      if (!isSupabaseConfigured) {
+        return addMockIncident({
+          account_id: resolvedAccountId,
+          site_id: input.site_id,
+          summary: input.summary,
+          type: input.type,
+          occurred_at: input.occurred_at,
+          severity: input.severity,
+          guard_id: input.guard_id ?? null,
+          shift_id: input.shift_id ?? null,
+        });
+      }
       const payload = {
-        account_id: accountId,
+        account_id: resolvedAccountId,
         site_id: input.site_id,
         summary: input.summary,
         type: input.type,
@@ -341,7 +402,8 @@ export function useCreateIncident(accountId?: string | null) {
       return data;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["incidents", accountId] });
+      void queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard_metrics"] });
     },
   });
 }
